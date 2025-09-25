@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Is it sticky?</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 40px;
+            font-weight: normal;
+        }
+
+        .status {
+            margin: 40px 0;
+        }
+
+        #main-message {
+            font-size: 2.8rem;
+            margin-bottom: 20px;
+        }
+
+        .details {
+            margin: 30px 0;
+        }
+
+        #weather-details {
+            font-size: 0.9rem;
+            color: #666;
+            line-height: 1.6;
+            word-wrap: break-word;
+            white-space: pre-line;
+            text-align: left;
+            display: inline-block;
+        }
+
+        .check-again {
+            background: none;
+            border: 2px solid #333;
+            padding: 10px 20px;
+            font-family: inherit;
+            font-size: 1rem;
+            cursor: pointer;
+            margin: 80px auto 0 auto;
+            display: block;
+            transition: all 0.3s ease;
+        }
+
+        .check-again:hover {
+            background-color: #333;
+            color: #f5f5f5;
+        }
+
+        .check-again:active {
+            transform: translateY(1px);
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 15px;
+            }
+            
+            .container {
+                margin: 20px auto;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+                margin-bottom: 30px;
+            }
+            
+            #main-message {
+                font-size: 2.2rem;
+            }
+            
+            #weather-details {
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Is it sticky?</h1>
+        
+        <div id="status" class="status">
+            <p id="main-message">Checking your location...</p>
+        </div>
+        
+        <div id="details" class="details">
+            <p id="weather-details"></p>
+        </div>
+        
+        <button id="check-again" class="check-again" style="display: none;">Check Again</button>
+    </div>
+    
+    <script>
+        class StickyChecker {
+            constructor() {
+                this.mainMessage = document.getElementById('main-message');
+                this.weatherDetails = document.getElementById('weather-details');
+                this.checkAgainBtn = document.getElementById('check-again');
+                
+                this.init();
+            }
+
+            init() {
+                this.checkAgainBtn.addEventListener('click', () => this.checkStickiness());
+                this.checkStickiness();
+            }
+
+            async checkStickiness() {
+                try {
+                    this.showMessage('Checking your location...');
+                    this.weatherDetails.textContent = '';
+                    this.checkAgainBtn.style.display = 'none';
+
+                    const position = await this.getCurrentPosition();
+                    const { latitude, longitude } = position.coords;
+
+                    this.showMessage('Getting weather data...');
+                    
+                    const weatherData = await this.getWeatherData(latitude, longitude);
+                    const stickyResult = this.calculateStickiness(weatherData);
+                    
+                    this.displayResult(stickyResult, weatherData);
+                    this.checkAgainBtn.style.display = 'block';
+
+                } catch (error) {
+                    this.handleError(error);
+                    this.checkAgainBtn.style.display = 'block';
+                }
+            }
+
+            getCurrentPosition() {
+                return new Promise((resolve, reject) => {
+                    if (!navigator.geolocation) {
+                        reject(new Error('Geolocation not supported'));
+                        return;
+                    }
+
+                    navigator.geolocation.getCurrentPosition(
+                        resolve,
+                        reject,
+                        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+                    );
+                });
+            }
+
+            async getWeatherData(lat, lon) {
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,dew_point_2m,wind_speed_10m&timezone=auto`;
+                
+                // Get weather data
+                const weatherResponse = await fetch(weatherUrl);
+                if (!weatherResponse.ok) {
+                    throw new Error(`Weather service unavailable (${weatherResponse.status})`);
+                }
+                const weatherData = await weatherResponse.json();
+                
+                if (!weatherData.current) {
+                    throw new Error('Invalid weather data received');
+                }
+                
+                // Get city name using Nominatim reverse geocoding (OpenStreetMap)
+                let cityName = 'Your Location';
+                let geocodingError = null;
+                
+                try {
+                    const geocodingResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`);
+                    if (geocodingResponse.ok) {
+                        const geocodingData = await geocodingResponse.json();
+                        if (geocodingData.address) {
+                            const addr = geocodingData.address;
+                            cityName = addr.city || addr.town || addr.village || addr.municipality || addr.county || 'Your Location';
+                            if (addr.state && cityName !== 'Your Location') {
+                                cityName += `, ${addr.state}`;
+                            }
+                        }
+                    } else {
+                        geocodingError = 'City name lookup failed';
+                    }
+                } catch (error) {
+                    geocodingError = 'City name lookup failed';
+                }
+                
+                // Transform to our expected format
+                return {
+                    name: cityName,
+                    coord: { lat, lon },
+                    main: {
+                        temp: weatherData.current.temperature_2m,
+                        humidity: weatherData.current.relative_humidity_2m,
+                        dew_point: weatherData.current.dew_point_2m
+                    },
+                    wind: {
+                        speed: weatherData.current.wind_speed_10m
+                    },
+                    warnings: geocodingError ? [geocodingError] : []
+                };
+            }
+
+            calculateStickiness(weatherData) {
+                const { temp, humidity, dew_point } = weatherData.main;
+                const windSpeed = weatherData.wind?.speed || 0;
+                
+                // Use actual dew point from API, or calculate if not available
+                const dewPoint = dew_point !== undefined ? dew_point : temp - ((100 - humidity) / 5);
+                
+                // Stickiness calculation based on dew point and humidity
+                let stickyLevel = 'not sticky';
+                
+                if (dewPoint > 21 || (humidity > 70 && temp > 25)) {
+                    if (dewPoint > 24 || (humidity > 85 && temp > 28)) {
+                        stickyLevel = 'very sticky';
+                    } else if (dewPoint > 18 || (humidity > 60 && temp > 22)) {
+                        stickyLevel = 'sticky';
+                    } else {
+                        stickyLevel = 'slightly sticky';
+                    }
+                }
+                
+                // Wind can reduce stickiness feeling (convert km/h to m/s for comparison)
+                const windSpeedMs = windSpeed * 0.277778; // Convert km/h to m/s
+                if (windSpeedMs > 5 && stickyLevel !== 'not sticky') {
+                    const levels = ['not sticky', 'slightly sticky', 'sticky', 'very sticky'];
+                    const currentIndex = levels.indexOf(stickyLevel);
+                    if (currentIndex > 0) {
+                        stickyLevel = levels[currentIndex - 1];
+                    }
+                }
+
+                return {
+                    level: stickyLevel,
+                    dewPoint: dewPoint.toFixed(1),
+                    city: weatherData.name || 'Your Location'
+                };
+            }
+
+            displayResult(stickyResult, weatherData) {
+                const { level, city } = stickyResult;
+                
+                this.showMessage(`It's ${level} in ${city}!`);
+                
+                const details = [
+                    `Location: ${weatherData.coord.lat.toFixed(4)}, ${weatherData.coord.lon.toFixed(4)}`,
+                    `City: ${city}`,
+                    `Temperature: ${weatherData.main.temp}°C`,
+                    `Humidity: ${weatherData.main.humidity}%`,
+                    `Dew Point: ${stickyResult.dewPoint}°C`,
+                    `Wind: ${weatherData.wind?.speed || 0} km/h`
+                ];
+                
+                // Add warnings if any
+                if (weatherData.warnings && weatherData.warnings.length > 0) {
+                    details.push(`Note: ${weatherData.warnings.join(', ')}`);
+                }
+                
+                this.weatherDetails.textContent = details.join('\n');
+            }
+
+            showMessage(message) {
+                this.mainMessage.textContent = message;
+            }
+
+            handleError(error) {
+                let message = 'Unable to check stickiness';
+                let details = '';
+                
+                // Geolocation errors
+                if (error.code === 1) {
+                    message = 'Location access denied';
+                    details = 'Please enable location services and refresh the page';
+                } else if (error.code === 2) {
+                    message = 'Location unavailable';
+                    details = 'Your device cannot determine your location. Please try again';
+                } else if (error.code === 3) {
+                    message = 'Location request timed out';
+                    details = 'Location services are taking too long. Please try again';
+                }
+                // Weather API errors
+                else if (error.message.includes('Weather service unavailable')) {
+                    message = 'Weather service unavailable';
+                    details = 'Cannot fetch weather data. Please check your internet connection and try again';
+                } else if (error.message.includes('Invalid weather data')) {
+                    message = 'Invalid weather data';
+                    details = 'The weather service returned incomplete data. Please try again';
+                }
+                // Network errors
+                else if (error.message.includes('Failed to fetch') || error.name === 'TypeError') {
+                    message = 'Connection failed';
+                    details = 'Cannot connect to weather services. Please check your internet connection';
+                }
+                // Generic errors
+                else {
+                    message = 'Something went wrong';
+                    details = error.message || 'Please try again';
+                }
+                
+                this.showMessage(message);
+                this.weatherDetails.textContent = details;
+            }
+        }
+
+        // Initialize the app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new StickyChecker();
+        });
+    </script>
+</body>
+</html>
