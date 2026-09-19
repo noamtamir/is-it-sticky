@@ -12,5 +12,19 @@ A simple weather app that tells you if it feels sticky in your location.
    - Above 25°C with a dew point above 18°C through 21°C: sticky
    - Above 25°C with a dew point above 21°C: very sticky
 
-## Single File
-Everything is contained in `index.html` - no dependencies or build process required.
+## Install as an app
+The app is installable from a modern mobile browser when served over HTTPS (or from
+`localhost` during development). On Android, use the browser's **Install app** or
+**Add to Home screen** option. On iPhone, use Safari's **Share → Add to Home Screen**.
+
+The service worker stores the app shell for offline startup. Live weather and location
+data still require a network connection and location permission.
+
+## Development
+
+No dependencies or build process are required. Serve the project locally to test PWA
+features:
+
+```sh
+python3 -m http.server 8000
+```
