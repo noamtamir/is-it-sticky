@@ -54,27 +54,6 @@
             display: inline-block;
         }
 
-        .check-again {
-            background: none;
-            border: 2px solid #333;
-            padding: 10px 20px;
-            font-family: inherit;
-            font-size: 2rem;
-            cursor: pointer;
-            margin: 80px auto 0 auto;
-            display: block;
-            transition: all 0.3s ease;
-        }
-
-        .check-again:hover {
-            background-color: #333;
-            color: #f5f5f5;
-        }
-
-        .check-again:active {
-            transform: translateY(1px);
-        }
-
         @media (max-width: 600px) {
             body {
                 padding: 15px;
@@ -111,7 +90,6 @@
             <p id="weather-details"></p>
         </div>
         
-        <button id="check-again" class="check-again" style="display: none;">⟳</button>
     </div>
     
     <script>
@@ -119,13 +97,10 @@
             constructor() {
                 this.mainMessage = document.getElementById('main-message');
                 this.weatherDetails = document.getElementById('weather-details');
-                this.checkAgainBtn = document.getElementById('check-again');
-                
                 this.init();
             }
 
             init() {
-                this.checkAgainBtn.addEventListener('click', () => this.checkStickiness());
                 this.checkStickiness();
             }
 
@@ -133,8 +108,6 @@
                 try {
                     this.showMessage('Checking your location...');
                     this.weatherDetails.textContent = '';
-                    this.checkAgainBtn.style.display = 'none';
-
                     const position = await this.getCurrentPosition();
                     const { latitude, longitude } = position.coords;
 
@@ -144,11 +117,9 @@
                     const stickyResult = this.calculateStickiness(weatherData);
                     
                     this.displayResult(stickyResult, weatherData);
-                    this.checkAgainBtn.style.display = 'block';
 
                 } catch (error) {
                     this.handleError(error);
-                    this.checkAgainBtn.style.display = 'block';
                 }
             }
 
