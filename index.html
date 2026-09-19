@@ -50,7 +50,7 @@
             line-height: 1.6;
             word-wrap: break-word;
             white-space: pre-line;
-            text-align: left;
+            text-align: center;
             display: inline-block;
         }
 
@@ -168,7 +168,7 @@
             }
 
             async getWeatherData(lat, lon) {
-                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,dew_point_2m,wind_speed_10m&timezone=auto`;
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,dew_point_2m&timezone=auto`;
                 
                 // Get weather data
                 const weatherResponse = await fetch(weatherUrl);
@@ -212,40 +212,27 @@
                         humidity: weatherData.current.relative_humidity_2m,
                         dew_point: weatherData.current.dew_point_2m
                     },
-                    wind: {
-                        speed: weatherData.current.wind_speed_10m
-                    },
                     warnings: geocodingError ? [geocodingError] : []
                 };
             }
 
             calculateStickiness(weatherData) {
                 const { temp, humidity, dew_point } = weatherData.main;
-                const windSpeed = weatherData.wind?.speed || 0;
                 
                 // Use actual dew point from API, or calculate if not available
                 const dewPoint = dew_point !== undefined ? dew_point : temp - ((100 - humidity) / 5);
                 
-                // Stickiness calculation based on dew point and humidity
-                let stickyLevel = 'not sticky';
+                // Stickiness needs warm air as well as moisture. This keeps cool,
+                // saturated/foggy weather from being reported as sticky.
+                let stickyLevel = 'NO';
                 
-                if (dewPoint > 21 || (humidity > 70 && temp > 25)) {
-                    if (dewPoint > 24 || (humidity > 85 && temp > 28)) {
-                        stickyLevel = 'very sticky';
-                    } else if (dewPoint > 18 || (humidity > 60 && temp > 22)) {
-                        stickyLevel = 'sticky';
-                    } else {
-                        stickyLevel = 'slightly sticky';
-                    }
-                }
-                
-                // Wind can reduce stickiness feeling (convert km/h to m/s for comparison)
-                const windSpeedMs = windSpeed * 0.277778; // Convert km/h to m/s
-                if (windSpeedMs > 5 && stickyLevel !== 'not sticky') {
-                    const levels = ['not sticky', 'slightly sticky', 'sticky', 'very sticky'];
-                    const currentIndex = levels.indexOf(stickyLevel);
-                    if (currentIndex > 0) {
-                        stickyLevel = levels[currentIndex - 1];
+                if (temp > 25) {
+                    if (dewPoint > 21) {
+                        stickyLevel = 'VERY';
+                    } else if (dewPoint > 18) {
+                        stickyLevel = 'YES';
+                    } else if (dewPoint >= 16) {
+                        stickyLevel = 'KINDA';
                     }
                 }
 
@@ -259,15 +246,14 @@
             displayResult(stickyResult, weatherData) {
                 const { level, city } = stickyResult;
                 
-                this.showMessage(`It's ${level} in ${city}!`);
+                this.showMessage(level);
                 
                 const details = [
-                    `Location: ${weatherData.coord.lat.toFixed(4)}, ${weatherData.coord.lon.toFixed(4)}`,
-                    `City: ${city}`,
-                    `Temperature: ${weatherData.main.temp}°C`,
-                    `Humidity: ${weatherData.main.humidity}%`,
-                    `Dew Point: ${stickyResult.dewPoint}°C`,
-                    `Wind: ${weatherData.wind?.speed || 0} km/h`
+                    `${city}`,
+                    `${weatherData.coord.lat.toFixed(4)}, ${weatherData.coord.lon.toFixed(4)}`,
+                    `${weatherData.main.temp}°C`,
+                    `humidity: ${weatherData.main.humidity}%`,
+                    `dew point: ${stickyResult.dewPoint}°C`
                 ];
                 
                 // Add warnings if any
