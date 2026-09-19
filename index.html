@@ -22,11 +22,16 @@
             color: #333;
             line-height: 1.6;
             padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
         }
 
         .container {
             max-width: 600px;
-            margin: 50px auto;
+            width: 100%;
+            margin: 0;
             text-align: center;
         }
 
@@ -41,8 +46,12 @@
         }
 
         #main-message {
-            font-size: 2.8rem;
+            font-size: 3.2rem;
             margin-bottom: 20px;
+        }
+
+        #main-message.loading {
+            font-size: 1.5rem;
         }
 
         .details {
@@ -65,7 +74,7 @@
             }
             
             .container {
-                margin: 20px auto;
+                margin: 0;
             }
             
             h1 {
@@ -74,7 +83,11 @@
             }
             
             #main-message {
-                font-size: 2.2rem;
+                font-size: 2.5rem;
+            }
+
+            #main-message.loading {
+                font-size: 1.3rem;
             }
             
             #weather-details {
@@ -88,7 +101,7 @@
         <h1>Is it sticky?</h1>
         
         <div id="status" class="status">
-            <p id="main-message">Checking your location...</p>
+            <p id="main-message" class="loading">Checking your location...</p>
         </div>
         
         <div id="details" class="details">
@@ -242,6 +255,8 @@
 
             showMessage(message) {
                 this.mainMessage.textContent = message;
+                const isLoading = message === 'Checking your location...' || message === 'Getting weather data...';
+                this.mainMessage.classList.toggle('loading', isLoading);
             }
 
             handleError(error) {
